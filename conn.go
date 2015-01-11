@@ -29,7 +29,7 @@ var options = struct {
 	CacheExpire: 3600 * 24,
 	Sep:         ".",
 	Matcher:     "subtoken, token, substring, string",
-	// format: name1|have_args, name2|, name3|args
+	// format: name1|args, name2|, name3|args
 	Lister: "khost|",
 }
 
@@ -56,7 +56,7 @@ type baseWrapper struct {
 	suffix string   // path part in host(host:/home)
 	hosts  []string // expanded hosts
 	update bool     // force update cache
-	skip   bool     // bypass matching logic, use by scp on remote host
+	skip   bool     // bypass matching logic, used by scp on remote host
 }
 
 // ForceUpdate will make cache update unconditionaly before run
@@ -206,7 +206,7 @@ func main() {
 			"       or make symbolic link named <ssh|scp>\n" +
 			"\n" +
 			"       use `%s' to seprate host parts, e.g.:\n" +
-			"         $ conn ssh baidu%swww%scom\n"
+			"         $ conn ssh foo%swww%scom\n"
 		fmt.Printf(usage, version, options.Sep, options.Sep, options.Sep)
 		return
 	}
