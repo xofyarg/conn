@@ -15,7 +15,7 @@ lister grabs hostname from `~/.ssh/known_hosts`.
 
 # Installation
 
-1. `go get repo.anb.im/conn`
+1. `go get go.papla.net/conn`
 2. put the _conn_ binary in your $PATH
 3. (optional) create a symlink point to it with the name of ssh/scp or
    make aliases:
