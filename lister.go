@@ -7,21 +7,18 @@ import (
 	"strings"
 )
 
-type lister struct {
-	name string
-	list func(string) ([]string, error)
-}
+type listerFunc func([]string) ([]string, error)
 
-func (l *lister) List(arg string) ([]string, error) {
-	return l.list(arg)
+func (lf listerFunc) List(args []string) ([]string, error) {
+	return lf(args)
 }
 
 func init() {
-	registerLister("khost", &lister{"khost", listKnownHosts})
+	registerLister("khost", listerFunc(listKnownHosts))
 }
 
 // retrieve host names from ~/.ssh/known_hosts
-func listKnownHosts(noarg string) ([]string, error) {
+func listKnownHosts(noargs []string) ([]string, error) {
 	f, err := os.Open(expandPath("~/.ssh/known_hosts"))
 	if err != nil {
 		return nil, err
@@ -42,6 +39,11 @@ func listKnownHosts(noarg string) ([]string, error) {
 
 		// ignore empty line
 		if strings.Trim(line, " ") == "" {
+			continue
+		}
+
+		// ignore hashed hostname
+		if strings.HasPrefix(line, "|") {
 			continue
 		}
 

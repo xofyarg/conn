@@ -5,24 +5,22 @@ import (
 	"strings"
 )
 
-type matcher struct {
-	name  string
-	match func(string, []string) []string
-}
+type matcherFunc func([]string, string, []string) []string
 
-func (m *matcher) Match(pat string, list []string) []string {
-	return m.match(pat, list)
+func (mf matcherFunc) Match(args []string, pat string, list []string) []string {
+	return mf(args, pat, list)
 }
 
 func init() {
-	registerMatcher("string", &matcher{"string", matchString})
-	registerMatcher("substring", &matcher{"substring", matchSubstring})
-	registerMatcher("token", &matcher{"token", matchToken})
-	registerMatcher("subtoken", &matcher{"subtoken", matchSubtoken})
+	registerMatcher("string", matcherFunc(matchString))
+	registerMatcher("substring", matcherFunc(matchSubstring))
+	registerMatcher("token", matcherFunc(matchToken))
+	registerMatcher("subtoken", matcherFunc(matchSubtoken))
+	registerMatcher("alias_regexp", matcherFunc(matchAliasRegexp))
 }
 
 // string match, pattern is exactly the same as target.
-func matchString(pat string, list []string) []string {
+func matchString(args []string, pat string, list []string) []string {
 	var result []string
 	for _, v := range list {
 		if pat == v {
@@ -33,7 +31,7 @@ func matchString(pat string, list []string) []string {
 }
 
 // pattern is a substring of target.
-func matchSubstring(pat string, list []string) []string {
+func matchSubstring(args []string, pat string, list []string) []string {
 	var result []string
 	for _, v := range list {
 		if strings.Contains(v, pat) {
@@ -44,7 +42,7 @@ func matchSubstring(pat string, list []string) []string {
 }
 
 // match token separated by option
-func matchToken(pat string, list []string) []string {
+func matchToken(args []string, pat string, list []string) []string {
 	keys := strings.Split(pat, options.Sep)
 	var result []string
 	re := regexp.MustCompile("[^.-]+")
@@ -76,7 +74,7 @@ func matchToken(pat string, list []string) []string {
 }
 
 // match token by substring
-func matchSubtoken(pat string, list []string) []string {
+func matchSubtoken(args []string, pat string, list []string) []string {
 	keys := strings.Split(pat, options.Sep)
 	var result []string
 	re := regexp.MustCompile("[^.-]+")
@@ -105,4 +103,26 @@ func matchSubtoken(pat string, list []string) []string {
 	}
 
 	return result
+}
+
+func matchAliasRegexp(args []string, pat string, list []string) []string {
+	if len(args) < 2 {
+		return nil
+	}
+
+	hostPattern := args[0]
+	template := args[1]
+
+	re, err := regexp.Compile(hostPattern)
+	if err != nil {
+		return nil
+	}
+	match := re.FindStringSubmatchIndex(pat)
+	if match == nil {
+		return nil
+	}
+
+	exp := re.ExpandString(nil, template, pat, match)
+
+	return []string{string(exp)}
 }

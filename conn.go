@@ -28,9 +28,8 @@ var options = struct {
 	CacheFile:   "~/.conn.cache",
 	CacheExpire: 3600 * 24,
 	Sep:         ".",
-	Matcher:     "subtoken, token, substring, string",
-	// format: name1|args, name2|, name3|args
-	Lister: "khost|",
+	Matcher:     "subtoken|token|substring|string",
+	Lister:      "khost",
 }
 
 // global variables
@@ -321,21 +320,14 @@ func listHosts(ls string, update bool) []string {
 
 func list(ls string) []string {
 	var hosts []string
-	for _, lister := range strings.Split(ls, ",") {
-		lister = strings.TrimSpace(lister)
-		parts := strings.Split(lister, "|")
-		if len(parts) != 2 {
-			Warn("lister syntax error: %s", lister)
-			continue
-		}
-
-		name := parts[0]
-		arg := parts[1]
-		l, ok := listers[name]
+	for _, l := range parseArgToken(ls) {
+		name := l[0]
+		args := l[1:]
+		lister, ok := listers[name]
 		if !ok {
 			Warn("no such lister: %s", name)
 		}
-		h, err := l.List(arg)
+		h, err := lister.List(args)
 		if err != nil {
 			Warn("list failed: [%s] %s", name, err)
 			continue
@@ -354,17 +346,16 @@ func list(ls string) []string {
 
 func matchHosts(ms string, pat string, hosts []string) []string {
 	var matched, result []string
-	for _, m := range strings.Split(ms, ",") {
-		m = strings.TrimSpace(m)
-
-		matcher, ok := matchers[m]
+	for _, m := range parseArgToken(ms) {
+		name := m[0]
+		matcher, ok := matchers[name]
 		if !ok {
 			continue
 		}
 
-		matched = matcher.Match(pat, hosts)
+		matched = matcher.Match(m[1:], pat, hosts)
 		n := len(matched)
-		Debug("matched %d by matcher %s", n, m)
+		Debug("matched %d by matcher %s", n, name)
 		if n == 1 {
 			result = matched
 			break
@@ -382,7 +373,7 @@ func matchHosts(ms string, pat string, hosts []string) []string {
 // Extensions
 //
 type Lister interface {
-	List(arg string) ([]string, error)
+	List(args []string) ([]string, error)
 }
 
 var listers map[string]Lister
@@ -395,7 +386,7 @@ func registerLister(name string, l Lister) {
 }
 
 type Matcher interface {
-	Match(pat string, list []string) []string
+	Match(args []string, pat string, list []string) []string
 }
 
 var matchers map[string]Matcher
@@ -405,4 +396,22 @@ func registerMatcher(name string, m Matcher) {
 		matchers = make(map[string]Matcher)
 	}
 	matchers[name] = m
+}
+
+// name1|name2,arg|name3,arg1,arg2
+func parseArgToken(t string) [][]string {
+	var r [][]string
+	components := strings.Split(t, "|")
+	for i := range components {
+		components[i] = strings.Trim(components[i], " ")
+		args := strings.Split(components[i], ",")
+		for j := range args {
+			args[j] = strings.Trim(args[j], " ")
+		}
+		if len(args) == 0 {
+			continue
+		}
+		r = append(r, args)
+	}
+	return r
 }
