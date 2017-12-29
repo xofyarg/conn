@@ -8,6 +8,7 @@ import (
 	"os/user"
 	"path"
 	"strings"
+	"syscall"
 	"time"
 )
 
@@ -43,7 +44,7 @@ type Wrapper interface {
 	ParseArgs() []string
 	ForceUpdate()
 	Expand() []string
-	Run()
+	Run() error
 }
 
 // baseWrapper implements Wrapper interface
@@ -85,7 +86,7 @@ func (w *baseWrapper) Expand() []string {
 	return w.hosts
 }
 
-func (w *baseWrapper) Run() {
+func (w *baseWrapper) Run() error {
 	if w.hosts != nil {
 		w.args[w.index] = w.prefix + w.hosts[0] + w.suffix
 	}
@@ -97,7 +98,7 @@ func (w *baseWrapper) Run() {
 	c.Stdin = os.Stdin
 	c.Stdout = os.Stdout
 	c.Stderr = os.Stderr
-	c.Run()
+	return c.Run()
 }
 
 type sshWrapper struct {
@@ -235,7 +236,15 @@ func main() {
 		fmt.Printf("  %s\n",
 			strings.Join(hosts, "\n  "))
 	} else {
-		w.Run()
+		if err := w.Run(); err != nil {
+			if exiterr, ok := err.(*exec.ExitError); ok {
+				if status, ok := exiterr.Sys().(syscall.WaitStatus); ok {
+					os.Exit(status.ExitStatus())
+				}
+			} else {
+				os.Exit(-1)
+			}
+		}
 	}
 }
 
